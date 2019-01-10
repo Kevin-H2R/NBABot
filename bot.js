@@ -13,17 +13,20 @@ logger.level = 'debug';
 
 let yesterday = ''
 let scoreMessage = ''
-const retrieveScores = function (bot, channelID, dayEalierNumber = 0, triCode = '') {
+let shortResultAsked = null
+let lastTriCode = null
+
+const retrieveScores = function (bot, channelID, dayEalierNumber = 0) {
     axios.get(`https://data.nba.net/10s/prod/v1/${yesterday}/scoreboard.json`)
     .then(response => {
-        let games = getGameList(response, triCode)
+        let games = getGameList(response)
 
         const nonEndedGames = games.filter(function (game) {
             return game.endTimeUTC == undefined
         })
         if (nonEndedGames.length > 0) {
             yesterday = getYesterday(dayEalierNumber + 1)
-            retrieveScores(bot, channelID, dayEalierNumber + 1, triCode)
+            retrieveScores(bot, channelID, dayEalierNumber + 1)
             return
         }
         scoreMessage = getScoreMessage(games)
@@ -37,12 +40,12 @@ const retrieveScores = function (bot, channelID, dayEalierNumber = 0, triCode = 
     });
 }
 
-const getGameList = function (response, triCode) {
-    if (triCode === '') {
+const getGameList = function (response) {
+    if (lastTriCode === '') {
         return response.data.games
     }
     const team = response.data.games.filter(function (game) {
-        return game.hTeam.triCode === triCode || game.vTeam.triCode === triCode 
+        return game.hTeam.triCode === lastTriCode || game.vTeam.triCode === lastTriCode 
     })
 
     return team
@@ -55,6 +58,10 @@ const getScoreMessage = function (games) {
         const awayTeam = game.vTeam
         const teams = `___**${homeTeam.triCode}**___ VS ___**${awayTeam.triCode}**___`
         const scores =  homeTeam.score + ' - ' + awayTeam.score
+        if (shortResultAsked) {
+            scoreMessage += `${teams}\n ${scores}\n\n`
+            return
+        }
         const homeLineScore = homeTeam.linescore.reduce((acc, cur) => acc + ` ${cur.score} `, '')
         const awayLineScore = awayTeam.linescore.reduce((acc, cur) => acc + ` ${cur.score} `, '')
         const details = (`*(${homeLineScore.trim()}) - (${awayLineScore.trim()})*`)
@@ -82,7 +89,7 @@ const getYesterday = function (dayEalierNumber = 0) {
     return currentDate
 }
 
-const printScores = function (bot, channelID, triCode) {
+const printScores = function (bot, channelID, triCode, shortResult = false) {
 
     const newYesterday = getYesterday()
     const dayChanged = newYesterday !== yesterday
@@ -90,8 +97,15 @@ const printScores = function (bot, channelID, triCode) {
         yesterday = newYesterday
     }
 
-    if (scoreMessage === '' || dayChanged) {
-        retrieveScores(bot, channelID, 0, triCode)
+    if (scoreMessage === '' || dayChanged || triCode !== '' ||
+        shortResult !== shortResultAsked || lastTriCode !== triCode
+     ) {
+        console.log('did not skip')
+        if (lastTriCode !== triCode) {
+            lastTriCode = triCode
+        }
+        shortResultAsked = shortResult
+        retrieveScores(bot, channelID, 0)
         return;
     }
     bot.sendMessage({
@@ -112,21 +126,27 @@ bot.on('ready', function (evt) {
     logger.info(bot.username + ' - (' + bot.id + ')');
 });
 bot.on('message', function (user, userID, channelID, message, evt) {
-    if (message.substring(0, 1) == '!') {
-        var args = message.substring(1).split(' ');
-        var cmd = args[0];
-       
-        args = args.splice(1);
+    if (message.substring(0, 1) !== '!') {
+        return
+    }
+    let args = message.substring(1).split(' ');
+    let cmd = args[0];
+    let option = ''
+    if (args.length > 1 && args[1].substr(0, 2) === '--') {
+        option = args[1].substr(2)
+    }
+    
+    args = args.splice(1);
 
-        switch(cmd) {
-            case 'result':
-                printScores(bot, channelID)
+    switch(cmd) {
+        case 'result':
+            let shortResult = option === 'short'
+            printScores(bot, channelID, '', shortResult)
+            break
+        default:
+            if (cmd.length !== 3) {
                 break
-            default:
-                if (cmd.length !== 3) {
-                    break
-                }
-                printScores(bot, channelID, cmd.toUpperCase())
-         }
-     }
+            }
+            printScores(bot, channelID, cmd.toUpperCase())
+        }
 });
