@@ -1,9 +1,10 @@
-var Discord = require('discord.io');
-var logger = require('winston');
-var axios = require('axios');
-access_token= process.env.ACCESS_TOKEN
+const Discord = require('discord.io');
+const logger = require('winston');
+const axios = require('axios');
+let access_token= process.env.ACCESS_TOKEN
 if (access_token === undefined) {
-    var auth = require('./auth.json');
+    const auth = require('./auth.json');
+    access_token = auth.token
 }
 
 // Configure logger settings
@@ -119,7 +120,7 @@ const printScores = function (bot, channelID, triCode, shortResult = false) {
 
 // Initialize Discord Bot
 var bot = new Discord.Client({
-   token: auth.token,
+   token: access_token,
    autorun: true
 });
 bot.on('ready', function (evt) {
