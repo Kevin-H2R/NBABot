@@ -11,8 +11,5 @@
     },
     "scripts": {
         "start": "node bot.js"
-    },
-    "engines": {
-        "node": "8.11.3"
     }
 }
