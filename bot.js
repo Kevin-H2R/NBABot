@@ -97,7 +97,7 @@ const printScores = function (bot, channelID, triCode, shortResult = false) {
         yesterday = newYesterday
     }
 
-    if (scoreMessage === '' || dayChanged || triCode !== '' ||
+    if (scoreMessage === '' || dayChanged ||
         shortResult !== shortResultAsked || lastTriCode !== triCode
      ) {
         console.log('did not skip')
@@ -137,16 +137,16 @@ bot.on('message', function (user, userID, channelID, message, evt) {
     }
     
     args = args.splice(1);
+    let shortResult = option === 'short'
 
     switch(cmd) {
         case 'result':
-            let shortResult = option === 'short'
             printScores(bot, channelID, '', shortResult)
             break
         default:
             if (cmd.length !== 3) {
                 break
             }
-            printScores(bot, channelID, cmd.toUpperCase())
+            printScores(bot, channelID, cmd.toUpperCase(), shortResult)
         }
 });
